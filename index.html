@@ -198,13 +198,16 @@
         </div>
       </div>
       <div class="field">
-        <label>Add‑ons (comma:price)</label>
-        <input id="addons" value="deshedding:20,nails:15,teeth:15,anal_glands:15" />
+        <label>Add-ons (comma:price)</label>
+        <input id="addons" value="teeth:15" />
       </div>
       <div class="row">
         <button class="btn" id="saveSettings">Save</button>
         <button class="btn alt" id="closeSettings">Close</button>
         <button class="btn warn" id="resetAll">Reset All</button>
+        <button class="btn alt" id="exportSettings">Export Settings</button>
+        <label for="importSettings" class="btn alt" style="cursor:pointer">Import Settings</label>
+        <input id="importSettings" type="file" accept="application/json" style="display:none" />
       </div>
     </div>
   </div>
@@ -256,6 +259,24 @@ function getAddonsMenu(){
   const raw = $('#addons').value; const out = {};
   raw.split(',').map(x=>x.trim()).filter(Boolean).forEach(pair=>{ const [k,v] = pair.split(':').map(s=>s.trim()); if(k) out[k.toLowerCase()] = Math.max(0, parseFloat(v||'0')); });
   return out;
+}
+
+function collectSettings(){
+  return {
+    bizName: $('#bizName').value,
+    ownerEmail: $('#ownerEmail')?.value || '',
+    ownerPhone: $('#ownerPhone')?.value || '',
+    serviceAreas: $('#serviceAreas').value,
+    startHour: $('#startHour').value,
+    slotsPerDay: $('#slotsPerDay').value,
+    basePrice: $('#basePrice').value,
+    breedSurcharge: $('#breedSurcharge')?.value || 10,
+    priceSmall: $('#priceSmall')?.value || 0,
+    priceMedium: $('#priceMedium')?.value || 15,
+    priceLarge: $('#priceLarge')?.value || 35,
+    priceXLarge: $('#priceXLarge')?.value || 50,
+    addons: $('#addons').value
+  };
 }
 
 function estimatePrice(breed, size, services, petType){
@@ -502,6 +523,24 @@ $('#saveSettings').addEventListener('click', ()=>{
 $('#resetAll').addEventListener('click', ()=>{ localStorage.clear(); location.reload(); });
 $('#demoFill').addEventListener('click', ()=>{ $('#city').value=$('#city option:nth-child(2)')?.value||''; const d=new Date(); d.setDate(d.getDate()+1); $('#date').value=d.toISOString().slice(0,10); $('#client').value='Tony'; $('#email').value='tony@example.com'; $('#phone').value='(555) 123-4567'; $('#pet').value='Bella'; $('#breed').value='Goldendoodle'; $('#petType').value='Dog'; $('#size').value='medium'; $('#birthday').value=''; $$('#servicesRow input')[0] && ($$('#servicesRow input')[0].checked=true); listSlots(); });
 
+// Settings import/export for cross-device persistence via uploaded settings.json
+$('#exportSettings').addEventListener('click', ()=>{
+  const s = collectSettings();
+  const blob = new Blob([JSON.stringify(s, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'settings.json'; a.click();
+});
+$('#importSettings').addEventListener('change', async (e)=>{
+  const file = e.target.files?.[0]; if(!file) return;
+  try{
+    const text = await file.text();
+    const json = JSON.parse(text);
+    if(!json || typeof json !== 'object') throw new Error('Invalid JSON');
+    store.set('settings', json);
+    hydrateSettings();
+    alert('Settings imported. Consider uploading settings.json to your site to sync devices.');
+  }catch(err){ alert('Failed to import settings: '+err.message); }
+});
+
 function init(){
   // Load saved settings if present, else defaults already in inputs
   hydrateSettings();
@@ -533,6 +572,20 @@ function seedDefaultsIfMissing(){
 init();
 ensureAdminUnlocked();
 seedDefaultsIfMissing();
+// Try to pull remote settings.json to sync across devices/CDN
+async function loadRemoteSettings(){
+  try{
+    const res = await fetch('settings.json?ts=' + Date.now(), {cache:'no-store'});
+    if(res.ok){
+      const json = await res.json();
+      if(json && typeof json === 'object'){
+        store.set('settings', json);
+        hydrateSettings();
+      }
+    }
+  }catch{ /* ignore if not available */ }
+}
+loadRemoteSettings();
 applyClientMode();
 if(!CLIENT_MODE) renderBookings();
 </script>
