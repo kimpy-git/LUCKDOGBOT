@@ -219,8 +219,23 @@ const store = {
 };
 
 // ====== Mode (client-only hides admin UI) ======
-// Pass ?admin=1 in URL to show admin UI when needed.
-const CLIENT_MODE = !(/[?&]admin=1(?:&|$)/.test(location.search));
+// Admin requires URL flag ?admin=1 and correct password.
+let CLIENT_MODE = !(/[?&]admin=1(?:&|$)/.test(location.search) && sessionStorage.getItem('admin_ok')==='1');
+
+function ensureAdminUnlocked(){
+  const wantsAdmin = /[?&]admin=1(?:&|$)/.test(location.search);
+  if(!wantsAdmin) return; // no admin flag
+  if(sessionStorage.getItem('admin_ok')==='1'){ CLIENT_MODE = false; return; }
+  const pwd = prompt('Admin password required');
+  if(pwd===null) { CLIENT_MODE = true; return; }
+  if(pwd === 'Aalv0623'){
+    sessionStorage.setItem('admin_ok','1');
+    CLIENT_MODE = false;
+  } else {
+    alert('Incorrect password. Admin features remain hidden.');
+    CLIENT_MODE = true;
+  }
+}
 
 // ====== Business logic ======
 function getServiceAreas(){ return $('#serviceAreas').value.split(',').map(s=>s.trim()).filter(Boolean); }
@@ -516,6 +531,7 @@ function seedDefaultsIfMissing(){
 }
 
 init();
+ensureAdminUnlocked();
 seedDefaultsIfMissing();
 applyClientMode();
 if(!CLIENT_MODE) renderBookings();
