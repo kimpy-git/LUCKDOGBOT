@@ -219,11 +219,11 @@ const store = {
 };
 
 // ====== Mode (client-only hides admin UI) ======
-// Admin requires URL flag ?admin=1 and correct password.
-let CLIENT_MODE = !(/[?&]admin=1(?:&|$)/.test(location.search) && sessionStorage.getItem('admin_ok')==='1');
+// Admin requires path "/admin" and correct password.
+let CLIENT_MODE = !(/\/admin(?:\/?$)/.test(location.pathname) && sessionStorage.getItem('admin_ok')==='1');
 
 function ensureAdminUnlocked(){
-  const wantsAdmin = /[?&]admin=1(?:&|$)/.test(location.search);
+  const wantsAdmin = /\/admin(?:\/?$)/.test(location.pathname);
   if(!wantsAdmin) return; // no admin flag
   if(sessionStorage.getItem('admin_ok')==='1'){ CLIENT_MODE = false; return; }
   const pwd = prompt('Admin password required');
