@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lucky Doggie Mobile Pet Spa — Super Simple Booker (Free, Local)</title>
+  <style>
+    :root{--bg:#0b0f14;--panel:#121924;--ink:#e8f0ff;--muted:#9bb0c6;--accent:#66d9ef;--ok:#3ddc97;--warn:#ffcc66;--err:#ff6b6b}
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial}
+    .wrap{max-width:880px;margin:28px auto;padding:0 14px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    header h1{font-size:22px;margin:0}
+    .badge{background:var(--ok);color:#072; padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px}
+    /* Replace old green badge with a friendlier tagline */
+    .badge{display:none !important}
+    .tagline{background:#203043;color:var(--ink); padding:4px 10px;border-radius:999px;font-weight:600;font-size:12px}
+    .card{background:var(--panel);border:1px solid #1e2936;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.35);padding:14px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    .section h3{margin:4px 0 10px 0;font-size:16px}
+    .field{display:flex;flex-direction:column;margin:8px 0}
+    .field label{font-size:12px;color:var(--muted);margin-bottom:4px}
+    .field input,.field select,.field textarea{background:#3a5f9e;border:1px solid #243041;color:var(--ink);padding:10px;border-radius:10px;outline:none}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{background:var(--accent);border:none;color:#001018;padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:700}
+    .btn.alt{background:#203043;color:var(--ink)}
+    .btn.ok{background:var(--ok);color:#002915}
+    .btn.warn{background:var(--warn);color:#2d2000}
+    .muted{color:var(--muted)}
+    .slots{display:flex;gap:8px;flex-wrap:wrap}
+    .slot{background:#0e1a29;border:1px solid #22344b;border-radius:10px;padding:8px 10px;cursor:pointer}
+    .slot[disabled]{opacity:.5;pointer-events:none}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{border-bottom:1px solid #223044;padding:8px;text-align:left;font-size:14px}
+    .price{font-size:20px;font-weight:800}
+    .pill{display:inline-block;background:#0e1a29;border:1px solid #22344b;color:var(--muted);padding:2px 8px;border-radius:999px;font-size:12px;margin-right:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🐶 Lucky Doggie Mobile Pet Spa — Booker</h1>
+      <span class="badge">Free • Local • No APIs</span>
+      <span class="tagline">Loving Care • Mobile Grooming</span>
+    </header>
+
+    <div class="grid">
+      <!-- LEFT: Quick Book Form -->
+      <div class="card section" id="formCard">
+        <h3>Quick Book</h3>
+        <div class="field"><label>City (service area)</label>
+          <select id="city">
+            <option value="">— choose —</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="field" style="flex:1">
+            <label>Date</label>
+            <input id="date" type="date" />
+          </div>
+          <div class="field" style="flex:1">
+            <label>Client Name</label>
+            <input id="client" placeholder="Tony" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field" style="flex:1">
+            <label>Email</label>
+            <input id="email" type="email" placeholder="tony@example.com" />
+          </div>
+          <div class="field" style="flex:1">
+            <label>Phone</label>
+            <input id="phone" type="tel" placeholder="(555) 123-4567" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field" style="flex:1">
+            <label>Pet Name</label>
+            <input id="pet" placeholder="Lola" />
+          </div>
+          <div class="field" style="flex:1">
+            <label>Breed</label>
+            <input id="breed" placeholder="Goldendoodle" />
+          </div>
+          <div class="field" style="width:150px">
+            <label>Pet Type</label>
+            <select id="petType">
+              <option value="Dog">Dog</option>
+              <option value="Cat">Cat</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="field" style="width:170px">
+            <label>Size</label>
+            <select id="size">
+              <option value="small">Small (1-20)</option>
+              <option value="medium">Medium (21-45)</option>
+              <option value="large">Large (46-70)</option>
+              <option value="xlarge">X Large (71+)</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1">
+            <label>Pet Birthday <span class="muted">(leave blank if unknown)</span></label>
+            <input id="birthday" type="date" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Services</label>
+          <div class="row" id="servicesRow"></div>
+        </div>
+        <div class="row">
+          <button class="btn" id="findSlots">Find Slots</button>
+          <button class="btn alt" id="resetForm">Clear</button>
+        </div>
+        <p class="muted" style="margin:10px 0 0">Service areas & pricing live in <b>Settings</b> → set once and forget.</p>
+      </div>
+
+      <!-- RIGHT: Quote & Slots -->
+      <div class="card section" id="quoteCard">
+        <h3>Quote & Slots</h3>
+        <div id="quoteArea" class="muted">Fill the form and hit <b>Find Slots</b>.</div>
+        <div id="slotsArea" class="slots" style="margin-top:10px"></div>
+        <div id="confirmArea" style="display:none;margin-top:10px" class="row">
+          <button class="btn ok" id="confirmBtn">Request Appointment</button>
+          <button class="btn warn" id="releaseBtn">Release</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card section" id="adminPanel" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Bookings</h3>
+        <div class="row">
+          <button class="btn alt" id="exportData">Export CSV</button>
+          <button class="btn alt" id="openSettings">Settings</button>
+          <button class="btn" id="demoFill">Demo Fill</button>
+        </div>
+      </div>
+      <div id="bookings"></div>
+    </div>
+
+    <!-- SETTINGS DIALOG (simple) -->
+    <div class="card section" id="settings" style="margin-top:14px;display:none">
+      <h3>Settings</h3>
+      <div class="row">
+        <div class="field" style="flex:2">
+          <label>Business Name</label>
+          <input id="bizName" value="Lucky Doggie Mobile Pet Spa" />
+        </div>
+        <div class="field" style="flex:2">
+          <label>Owner Email (for requests)</label>
+          <input id="ownerEmail" value="luckydoggie.spapet@gmail.com" />
+        </div>
+        <div class="field" style="flex:2">
+          <label>Owner Phone (SMS)</label>
+          <input id="ownerPhone" value="+1 908 409 3584" />
+        </div>
+        <div class="field" style="flex:3">
+          <label>Service Areas (comma separated)</label>
+          <input id="serviceAreas" value="Newark, East Orange, West Orange, Irvington, Bloomfield, Montclair, Clifton, Paterson, Passaic, Belleville, Nutley, Rutherford, Lyndhurst, North Arlington, Kearny, Harrison, Elizabeth, Union, Hillside, Maplewood, South Orange, Orange, Jersey City, Hoboken, Weehawken, Secaucus, North Bergen, West New York, Fair Lawn, Paramus, Hackensack, Teaneck, Englewood, Fort Lee, Lodi, Garfield, Elmwood Park" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field" style="width:160px">
+          <label>Start Hour</label>
+          <input id="startHour" type="number" min="6" max="12" value="9" />
+        </div>
+        <div class="field" style="width:160px">
+          <label>Slots/Day</label>
+          <input id="slotsPerDay" type="number" min="1" max="12" value="4" />
+        </div>
+        <div class="field" style="width:160px">
+          <label>Base Price $</label>
+          <input id="basePrice" type="number" min="0" value="65" />
+        </div>
+        <div class="field" style="width:160px">
+          <label>Doodle Surcharge $</label>
+          <input id="breedSurcharge" type="number" min="0" value="10" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field" style="width:160px">
+          <label>Small +$</label>
+          <input id="priceSmall" type="number" min="0" value="0" />
+        </div>
+        <div class="field" style="width:160px">
+          <label>Medium +$</label>
+          <input id="priceMedium" type="number" min="0" value="15" />
+        </div>
+        <div class="field" style="width:160px">
+          <label>Large +$</label>
+          <input id="priceLarge" type="number" min="0" value="35" />
+        </div>
+        <div class="field" style="width:160px">
+          <label>X Large +$</label>
+          <input id="priceXLarge" type="number" min="0" value="50" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Add‑ons (comma:price)</label>
+        <input id="addons" value="deshedding:20,nails:15,teeth:15,anal_glands:15" />
+      </div>
+      <div class="row">
+        <button class="btn" id="saveSettings">Save</button>
+        <button class="btn alt" id="closeSettings">Close</button>
+        <button class="btn warn" id="resetAll">Reset All</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ====== Storage helpers ======
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const store = {
+  get(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch{ return d } },
+  set(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+};
+
+// ====== Mode (client-only hides admin UI) ======
+// Pass ?admin=1 in URL to show admin UI when needed.
+const CLIENT_MODE = !(/[?&]admin=1(?:&|$)/.test(location.search));
+
+// ====== Business logic ======
+function getServiceAreas(){ return $('#serviceAreas').value.split(',').map(s=>s.trim()).filter(Boolean); }
+function getStartHour(){ return Math.min(18, Math.max(6, parseInt($('#startHour').value||'9',10))); }
+function getSlotsPerDay(){ return Math.min(12, Math.max(1, parseInt($('#slotsPerDay').value||'4',10))); }
+function getBasePrice(){ return Math.max(0, parseFloat($('#basePrice').value||'65')); }
+function getBreedSurcharge(){ return Math.max(0, parseFloat($('#breedSurcharge').value||'10')); }
+function getSizePrice(size){
+  const map = {
+    small: Math.max(0, parseFloat($('#priceSmall').value||'0')),
+    medium: Math.max(0, parseFloat($('#priceMedium').value||'15')),
+    large: Math.max(0, parseFloat($('#priceLarge').value||'35')),
+    xlarge: Math.max(0, parseFloat($('#priceXLarge').value||'50')),
+  };
+  return map[String(size||'').toLowerCase()] ?? 0;
+}
+function getAddonsMenu(){
+  const raw = $('#addons').value; const out = {};
+  raw.split(',').map(x=>x.trim()).filter(Boolean).forEach(pair=>{ const [k,v] = pair.split(':').map(s=>s.trim()); if(k) out[k.toLowerCase()] = Math.max(0, parseFloat(v||'0')); });
+  return out;
+}
+
+function estimatePrice(breed, size, services, petType){
+  let price = getBasePrice();
+  price += getSizePrice(size);
+  if(petType!=='Cat' && breed && /(doodle|poodle|husky|malamute)/i.test(breed)) price += getBreedSurcharge();
+  const menu = getAddonsMenu();
+  for(const s of services || []) price += (menu[s.toLowerCase()]||0);
+  return Math.round(price*100)/100;
+}
+
+function durationMinutes(services){ return (services||[]).includes('deshedding') ? 75 : 60; }
+
+function isWeekend(d){
+  // d is 'YYYY-MM-DD'
+  const dt = new Date(d);
+  const day = dt.getUTCDay ? dt.getUTCDay() : dt.getDay();
+  return day === 0 || day === 6; // Sun or Sat
+}
+
+function genSlots(date){
+  if(isWeekend(date)) return [];
+  const n = getSlotsPerDay();
+  const start = getStartHour();
+  const GAP_MIN = 150; // 2h30m between appointments
+  const slots = [];
+  for(let i=0;i<n;i++){
+    const total = start*60 + i*GAP_MIN;
+    const hh = Math.floor(total/60); const mm = total%60;
+    if(hh >= 24) break; // don't overflow to next day
+    slots.push(`${date}T${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`);
+  }
+  const booked = store.get('bookings',[]).filter(b=>b.date.startsWith(date)).map(b=>b.date);
+  const withinGap = (a,b)=> Math.abs((new Date(a) - new Date(b))/60000) < GAP_MIN;
+  return slots.filter(s=>!booked.some(b=>withinGap(s,b)));
+}
+
+// ====== UI actions ======
+let pending = null; // temp selection before confirm
+
+function hydrateSettings(){
+  const s = store.get('settings', null);
+  if(s){
+    $('#bizName').value=s.bizName;
+    $('#ownerEmail').value=s.ownerEmail||$('#ownerEmail').value;
+    if(s.ownerPhone!=null) $('#ownerPhone').value=s.ownerPhone;
+    $('#serviceAreas').value=s.serviceAreas;
+    $('#startHour').value=s.startHour;
+    $('#slotsPerDay').value=s.slotsPerDay;
+    $('#basePrice').value=s.basePrice;
+    if(s.breedSurcharge!=null) $('#breedSurcharge').value=s.breedSurcharge;
+    if(s.priceSmall!=null) $('#priceSmall').value=s.priceSmall;
+    if(s.priceMedium!=null) $('#priceMedium').value=s.priceMedium;
+    if(s.priceLarge!=null) $('#priceLarge').value=s.priceLarge;
+    if(s.priceXLarge!=null) $('#priceXLarge').value=s.priceXLarge;
+    $('#addons').value=s.addons;
+  }
+  // populate city select
+  const citySel = $('#city');
+  citySel.innerHTML = '<option value="">— choose —</option>' + getServiceAreas().map(c=>`<option>${c}</option>`).join('');
+  // services chips
+  const row = $('#servicesRow'); row.innerHTML = '';
+  const menu = getAddonsMenu();
+  Object.keys(menu).forEach(k=>{
+    const id = 'svc_'+k; const w = document.createElement('label'); w.className='pill';
+    w.innerHTML = `<input type="checkbox" id="${id}" data-key="${k}" style="margin-right:6px"> ${k.replace(/_/g,' ')} (+$${menu[k]})`;
+    row.appendChild(w);
+  });
+}
+
+function currentServices(){ return $$('#servicesRow input[type="checkbox"]:checked').map(x=>x.dataset.key); }
+
+function formatSlot(iso){
+  const dt = new Date(iso);
+  const wd = dt.toLocaleDateString(undefined,{weekday:'short'});
+  const md = dt.toLocaleDateString(undefined,{month:'short', day:'numeric'});
+  const tm = dt.toLocaleTimeString(undefined,{hour:'numeric', minute:'2-digit'});
+  return `${wd}, ${md} at ${tm}`;
+}
+
+function quoteTextV2(){
+  const city = $('#city').value; const date = $('#date').value; const name=$('#client').value.trim();
+  const pet=$('#pet').value.trim(); const breed=$('#breed').value.trim(); const size=$('#size').value; const petType=$('#petType').value;
+  if(!city||!date||!breed||!size){ return '<span class="muted">Missing details. Please fill city, date, breed, and size.</span>'; }
+  const price = estimatePrice(breed, size, currentServices(), petType);
+  const dur = durationMinutes(currentServices());
+  return `<div class="price">$${price.toFixed(2)}</div><div class="muted">~ ${dur} min — ${breed} — ${petType} — ${size}${currentServices().length? ' — '+currentServices().join(', '):''}</div>`;
+}
+
+function quoteText(){
+  const city = $('#city').value; const date = $('#date').value; const name=$('#client').value.trim();
+  const pet=$('#pet').value.trim(); const breed=$('#breed').value.trim(); const weight=parseFloat($('#weight').value||'');
+  if(!city||!date||!breed||!weight){ return '<span class="muted">Missing details. Please fill city, date, breed, and weight.</span>'; }
+  const price = estimatePrice(breed, weight, currentServices());
+  const dur = durationMinutes(currentServices());
+  return `<div class="price">$${price.toFixed(2)}</div><div class="muted">~ ${dur} min • ${breed} • ${weight} lb ${currentServices().length? '• '+currentServices().join(', '):''}</div>`;
+}
+
+function listSlots(){
+  const city = $('#city').value; const date = $('#date').value;
+  const q = $('#quoteArea'); q.innerHTML = quoteTextV2();
+  const area = $('#slotsArea'); area.innerHTML='';
+  if(!city||!date){ area.innerHTML='<span class="muted">Pick a city and date.</span>'; return; }
+  if(isWeekend(date)){ area.innerHTML='<span class="muted">Closed on weekends. Please pick a weekday.</span>'; return; }
+  const slots = genSlots(date);
+  if(!slots.length){ area.innerHTML='<span class="muted">No slots left for this date.</span>'; return; }
+  slots.slice(0,4).forEach(s=>{
+    const b = document.createElement('button'); b.className='slot'; b.textContent=formatSlot(s); b.onclick=()=>selectSlot(s);
+    area.appendChild(b);
+  });
+}
+
+function selectSlot(iso){
+  pending = { iso };
+  $('#confirmArea').style.display='flex';
+  $$('#slotsArea .slot').forEach(x=>x.disabled=true);
+}
+
+function confirmBooking(){
+  if(!pending) return;
+  const city=$('#city').value, date=pending.iso, name=$('#client').value.trim()||'Client';
+  const pet=$('#pet').value.trim(), breed=$('#breed').value.trim(); const size=$('#size').value; const petType=$('#petType').value;
+  const email = ($('#email').value||'').trim();
+  const phone = ($('#phone').value||'').trim();
+  const birthday = ($('#birthday').value||'').trim() || 'NA';
+  const services=currentServices(); const price=estimatePrice(breed, size, services, petType);
+  // Compose SMS request and also record request in admin bookings
+  const s = store.get('settings', null) || {};
+  const ownerPhoneRaw = (s.ownerPhone || $('#ownerPhone')?.value || '').trim();
+  const phoneDigits = ownerPhoneRaw.replace(/\D/g,'');
+  let ownerPhone = ownerPhoneRaw;
+  if(phoneDigits.length === 10) ownerPhone = '+1'+phoneDigits;
+  else if(phoneDigits.length === 11 && phoneDigits.startsWith('1')) ownerPhone = '+'+phoneDigits;
+  if(!/\+?\d{10,}/.test(ownerPhone)){ alert('Owner Phone not set or invalid. Please open Settings and provide a valid number.'); return; }
+  // Require customer contact info
+  const emailOk = /.+@.+\..+/.test(email);
+  const digits = (phone.match(/\d/g)||[]).length;
+  if(!emailOk || digits < 7){ alert('Please enter a valid email and phone number.'); return; }
+  // Prevent booking if within 2h30m of an existing booking that day
+  const rows = store.get('bookings', []);
+  const GAP_MIN = 150; const dateOnly = date.slice(0,10);
+  const conflict = rows.some(r => r.date.startsWith(dateOnly) && Math.abs((new Date(r.date) - new Date(date))/60000) < GAP_MIN);
+  if(conflict){ alert('This time is no longer available. Please pick another slot.'); pending=null; $('#confirmArea').style.display='none'; listSlots(); return; }
+  const when = new Date(date);
+  const whenStr = isNaN(when) ? date : when.toLocaleString();
+  const subject = `Appointment Request: ${pet||'Pet'} on ${whenStr}`;
+  const bodyLines = [
+    `Client: ${name}`,
+    `Email: ${email}`,
+    `Phone: ${phone}`,
+    `City: ${city||'-'}`,
+    `When: ${whenStr}`,
+    `Pet: ${pet||'-'}`,
+    `Type: ${petType}`,
+    `Breed: ${breed||'-'}`,
+    `Size: ${size}`,
+    `Birthday: ${birthday}`,
+    `Services: ${services.length?services.join(', '):'-'}`,
+    `Estimated Price: $${price.toFixed(2)}`,
+    '',
+    'Sent from Lucky Doggie request form.'
+  ];
+  const sms = `sms:${encodeURIComponent(ownerPhone)}?&body=${encodeURIComponent(bodyLines.join('\n'))}`;
+  try { window.location.href = sms; } catch { window.open(sms, '_self'); }
+  // Record request in local bookings for admin view
+  rows.push({date, city, name, email, phone, pet, petType, breed, size, birthday, services, price, status:'requested'});
+  store.set('bookings', rows);
+  if(!CLIENT_MODE) renderBookings();
+  // Reset pending/UI
+  pending=null; $('#confirmArea').style.display='none'; listSlots();
+}
+
+function exportCSV(){
+  const rows = store.get('bookings', []);
+  if(!rows.length) return;
+  const head = ['date','city','name','email','phone','petType','pet','birthday','breed','size','services','price','status'];
+  const lines = [head.join(',')];
+  for(const r of rows){
+    const line = [
+      r.date,
+      r.city,
+      r.name||'',
+      r.email||'',
+      r.phone||'',
+      r.petType||'',
+      r.pet||'',
+      r.birthday||'NA',
+      r.breed||'',
+      r.size||'',
+      (r.services||[]).join('|'),
+      r.price,
+      r.status||''
+    ].map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',');
+    lines.push(line);
+  }
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'bookings.csv'; a.click();
+}
+
+function renderBookings(){
+  const rows = store.get('bookings', []);
+  if(!rows.length){ $('#bookings').innerHTML = '<span class="muted">No bookings yet.</span>'; return; }
+  let html = '<table><tr><th>Date</th><th>City</th><th>Client</th><th>Email</th><th>Phone</th><th>Type</th><th>Pet</th><th>Birthday</th><th>Breed</th><th>Size</th><th>Services</th><th>Price</th><th>Status</th></tr>';
+  for(const r of rows){ html += `<tr><td>${formatSlot(r.date)}</td><td>${r.city}</td><td>${r.name||'-'}</td><td>${r.email||'-'}</td><td>${r.phone||'-'}</td><td>${r.petType||'-'}</td><td>${r.pet||'-'}</td><td>${r.birthday||'NA'}</td><td>${r.breed||'-'}</td><td>${r.size||'-'}</td><td>${(r.services||[]).join(', ')}</td><td>$${r.price.toFixed(2)}</td><td>${r.status||''}</td></tr>`; }
+  html += '</table>';
+  $('#bookings').innerHTML = html;
+}
+
+// Hide admin UI in client-only mode
+function applyClientMode(){
+  if(!CLIENT_MODE) return;
+  const admin = document.getElementById('adminPanel'); if(admin) admin.style.display='none';
+  const hint = document.querySelector('#formCard p.muted'); if(hint) hint.remove();
+}
+
+// ====== Buttons & events ======
+$('#findSlots').addEventListener('click', listSlots);
+$('#date').addEventListener('change', ()=>{ const v=$('#date').value; if(v && isWeekend(v)){ alert('Closed on Saturdays and Sundays. Please choose a weekday.'); $('#date').value=''; $('#slotsArea').innerHTML=''; $('#quoteArea').innerHTML='<span class="muted">Fill the form and hit <b>Find Slots</b>.</span>'; }});
+$('#confirmBtn').addEventListener('click', confirmBooking);
+$('#releaseBtn').addEventListener('click', ()=>{ pending=null; $('#confirmArea').style.display='none'; $$('#slotsArea .slot').forEach(x=>x.disabled=false); });
+$('#resetForm').addEventListener('click', ()=>{ ['city','date','client','email','phone','pet','breed','birthday'].forEach(id=>$('#'+id).value=''); $('#petType').value='Dog'; $('#size').value='small'; $$('#servicesRow input').forEach(x=>x.checked=false); $('#quoteArea').innerHTML='<span class="muted">Fill the form and hit <b>Find Slots</b>.</span>'; $('#slotsArea').innerHTML=''; $('#confirmArea').style.display='none'; });
+$('#exportData').addEventListener('click', exportCSV);
+$('#openSettings').addEventListener('click', ()=>{ $('#settings').style.display='block'; });
+$('#closeSettings').addEventListener('click', ()=>{ $('#settings').style.display='none'; hydrateSettings(); });
+$('#saveSettings').addEventListener('click', ()=>{
+  store.set('settings', {
+    bizName: $('#bizName').value,
+    ownerEmail: $('#ownerEmail').value,
+    ownerPhone: $('#ownerPhone').value,
+    serviceAreas: $('#serviceAreas').value,
+    startHour: $('#startHour').value,
+    slotsPerDay: $('#slotsPerDay').value,
+    basePrice: $('#basePrice').value,
+    breedSurcharge: $('#breedSurcharge').value,
+    priceSmall: $('#priceSmall').value,
+    priceMedium: $('#priceMedium').value,
+    priceLarge: $('#priceLarge').value,
+    priceXLarge: $('#priceXLarge').value,
+    addons: $('#addons').value
+  });
+  hydrateSettings();
+  alert('Saved');
+});
+$('#resetAll').addEventListener('click', ()=>{ localStorage.clear(); location.reload(); });
+$('#demoFill').addEventListener('click', ()=>{ $('#city').value=$('#city option:nth-child(2)')?.value||''; const d=new Date(); d.setDate(d.getDate()+1); $('#date').value=d.toISOString().slice(0,10); $('#client').value='Tony'; $('#email').value='tony@example.com'; $('#phone').value='(555) 123-4567'; $('#pet').value='Bella'; $('#breed').value='Goldendoodle'; $('#petType').value='Dog'; $('#size').value='medium'; $('#birthday').value=''; $$('#servicesRow input')[0] && ($$('#servicesRow input')[0].checked=true); listSlots(); });
+
+function init(){
+  // Load saved settings if present, else defaults already in inputs
+  hydrateSettings();
+  const name = store.get('settings',null)?.bizName || $('#bizName').value || 'Lucky Doggie Mobile Pet Spa';
+  document.title = name + ' — Booker';
+}
+
+// Seed defaults into localStorage once so service areas persist across refreshes
+function seedDefaultsIfMissing(){
+  const s = store.get('settings', null);
+  if(s) return;
+  store.set('settings', {
+    bizName: $('#bizName').value,
+    ownerEmail: $('#ownerEmail')?.value || '',
+    ownerPhone: $('#ownerPhone')?.value || '',
+    serviceAreas: $('#serviceAreas').value,
+    startHour: $('#startHour').value,
+    slotsPerDay: $('#slotsPerDay').value,
+    basePrice: $('#basePrice').value,
+    breedSurcharge: $('#breedSurcharge')?.value || 10,
+    priceSmall: $('#priceSmall')?.value || 0,
+    priceMedium: $('#priceMedium')?.value || 15,
+    priceLarge: $('#priceLarge')?.value || 35,
+    priceXLarge: $('#priceXLarge')?.value || 50,
+    addons: $('#addons').value
+  });
+}
+
+init();
+seedDefaultsIfMissing();
+applyClientMode();
+if(!CLIENT_MODE) renderBookings();
+</script>
+</body>
+</html>
