@@ -211,7 +211,7 @@
       </div>
       <div class="field">
         <label>Add-ons (comma:price)</label>
-        <input id="addons" value="teeth:15" />
+        <input id="addons" value="teeth cleaning:15" />
       </div>
       <div class="row">
         <button class="btn" id="saveSettings">Save</button>
@@ -224,6 +224,13 @@
     </div>
   </div>
 
+  <!-- Optional: Firebase SDK for cross-device syncing. Leave as-is if unused. -->
+  <!-- To enable, define window.FIREBASE_CONFIG in a script tag before the main script,
+       e.g., <script>window.FIREBASE_CONFIG={ apiKey:"...", authDomain:"...", projectId:"..." };</script>
+       Then host this file; all devices will sync settings and bookings via Firestore. -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <script>
 // ====== Storage helpers ======
 const $ = s => document.querySelector(s);
@@ -232,6 +239,53 @@ const store = {
   get(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch{ return d } },
   set(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
 };
+
+// ====== Optional cross-device sync (Firestore) ======
+let db = null;                 // Firestore DB instance when configured
+let bookingsCache = null;      // In-memory bookings from backend
+let applyingRemoteSettings = false; // Guard to avoid loops when hydrating from remote
+
+async function initSync(){
+  try{
+    if(!window.FIREBASE_CONFIG) return;              // Not configured
+    if(!(window.firebase && firebase.initializeApp)) return; // SDK not loaded
+    if(db) return;                                   // Already initialized
+    firebase.initializeApp(window.FIREBASE_CONFIG);
+    db = firebase.firestore();
+    try { await db.enablePersistence?.({ synchronizeTabs:true }); } catch (_) {}
+    startSettingsSync();
+    startBookingsSync();
+  }catch(e){ console.warn('Sync init failed:', e); }
+}
+
+function settingsDoc(){ return db.collection('meta').doc('settings'); }
+function bookingsCol(){ return db.collection('bookings'); }
+
+function startSettingsSync(){
+  if(!db) return;
+  settingsDoc().onSnapshot(snap=>{
+    const data = snap.data?.() || snap.data();
+    if(!data || applyingRemoteSettings) return;
+    applyingRemoteSettings = true;
+    store.set('settings', data);
+    hydrateSettings();
+    applyingRemoteSettings = false;
+  }, err=>console.warn('settings onSnapshot error', err));
+}
+
+function startBookingsSync(){
+  if(!db) return;
+  bookingsCol().onSnapshot(snap=>{
+    bookingsCache = snap.docs.map(d=>({ id:d.id, ...(d.data?.()||d.data()) }))
+      .filter(r=>r && r.date)
+      .sort((a,b)=> String(a.date).localeCompare(String(b.date)));
+    // Keep localStorage in sync for compatibility with existing UI code
+    try{ store.set('bookings', bookingsCache); }catch{}
+    if(!CLIENT_MODE) renderBookings();
+    // If client has a date selected, refresh available slots view
+    try { if($('#date')?.value) listSlots(); } catch {}
+  }, err=>console.warn('bookings onSnapshot error', err));
+}
 
 // ====== Mode (client-only hides admin UI) ======
 // Admin requires path "/admin" and correct password.
@@ -321,7 +375,8 @@ function genSlots(date){
     if(hh >= 24) break; // don't overflow to next day
     slots.push(`${date}T${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`);
   }
-  const booked = store.get('bookings',[]).filter(b=>b.date.startsWith(date)).map(b=>b.date);
+  const allRows = (bookingsCache && Array.isArray(bookingsCache)) ? bookingsCache : store.get('bookings',[]);
+  const booked = (allRows||[]).filter(b=>String(b.date).startsWith(date)).map(b=>b.date);
   const withinGap = (a,b)=> Math.abs((new Date(a) - new Date(b))/60000) < GAP_MIN;
   return slots.filter(s=>!booked.some(b=>withinGap(s,b)));
 }
@@ -428,9 +483,9 @@ function confirmBooking(){
   const digits = (phone.match(/\d/g)||[]).length;
   if(!emailOk || digits < 7){ alert('Please enter a valid email and phone number.'); return; }
   // Prevent booking if within 2h30m of an existing booking that day
-  const rows = store.get('bookings', []);
+  const currentRows = (bookingsCache && Array.isArray(bookingsCache)) ? bookingsCache : store.get('bookings', []);
   const GAP_MIN = 150; const dateOnly = date.slice(0,10);
-  const conflict = rows.some(r => r.date.startsWith(dateOnly) && Math.abs((new Date(r.date) - new Date(date))/60000) < GAP_MIN);
+  const conflict = (currentRows||[]).some(r => String(r.date).startsWith(dateOnly) && Math.abs((new Date(r.date) - new Date(date))/60000) < GAP_MIN);
   if(conflict){ alert('This time is no longer available. Please pick another slot.'); pending=null; $('#confirmArea').style.display='none'; listSlots(); return; }
   const when = new Date(date);
   const whenStr = isNaN(when) ? date : when.toLocaleString();
@@ -453,10 +508,16 @@ function confirmBooking(){
   ];
   const sms = `sms:${encodeURIComponent(ownerPhone)}?&body=${encodeURIComponent(bodyLines.join('\n'))}`;
   try { window.location.href = sms; } catch { window.open(sms, '_self'); }
-  // Record request in local bookings for admin view
-  rows.push({date, city, name, email, phone, pet, petType, breed, size, birthday, services, price, status:'requested'});
-  store.set('bookings', rows);
-  if(!CLIENT_MODE) renderBookings();
+  // Persist booking: Firestore (if configured) else localStorage
+  const newBooking = {date, city, name, email, phone, pet, petType, breed, size, birthday, services, price, status:'requested', createdAt: (window.firebase?.firestore?.FieldValue?.serverTimestamp?.()||null) };
+  if(db){
+    try{ bookingsCol().add(newBooking); }catch(e){ console.warn('Failed to persist booking to backend:', e); }
+  } else {
+    const rows = store.get('bookings', []);
+    rows.push(newBooking);
+    store.set('bookings', rows);
+    if(!CLIENT_MODE) renderBookings();
+  }
   // Reset pending/UI
   pending=null; $('#confirmArea').style.display='none'; listSlots();
 }
@@ -489,7 +550,7 @@ function exportCSV(){
 }
 
 function renderBookings(){
-  const rows = store.get('bookings', []);
+  const rows = (bookingsCache && Array.isArray(bookingsCache)) ? bookingsCache : store.get('bookings', []);
   if(!rows.length){ $('#bookings').innerHTML = '<span class="muted">No bookings yet.</span>'; return; }
   let html = '<table><tr><th>Date</th><th>City</th><th>Client</th><th>Email</th><th>Phone</th><th>Type</th><th>Pet</th><th>Birthday</th><th>Breed</th><th>Size</th><th>Services</th><th>Price</th><th>Status</th></tr>';
   for(const r of rows){ html += `<tr><td>${formatSlot(r.date)}</td><td>${r.city}</td><td>${r.name||'-'}</td><td>${r.email||'-'}</td><td>${r.phone||'-'}</td><td>${r.petType||'-'}</td><td>${r.pet||'-'}</td><td>${r.birthday||'NA'}</td><td>${r.breed||'-'}</td><td>${r.size||'-'}</td><td>${(r.services||[]).join(', ')}</td><td>$${r.price.toFixed(2)}</td><td>${r.status||''}</td></tr>`; }
@@ -514,7 +575,7 @@ $('#exportData').addEventListener('click', exportCSV);
 $('#openSettings').addEventListener('click', ()=>{ $('#settings').style.display='block'; });
 $('#closeSettings').addEventListener('click', ()=>{ $('#settings').style.display='none'; hydrateSettings(); });
 $('#saveSettings').addEventListener('click', ()=>{
-  store.set('settings', {
+  const next = {
     bizName: $('#bizName').value,
     ownerEmail: $('#ownerEmail').value,
     ownerPhone: $('#ownerPhone').value,
@@ -528,7 +589,10 @@ $('#saveSettings').addEventListener('click', ()=>{
     priceLarge: $('#priceLarge').value,
     priceXLarge: $('#priceXLarge').value,
     addons: $('#addons').value
-  });
+  };
+  store.set('settings', next);
+  // Mirror to backend if configured
+  if(db){ try{ settingsDoc().set(next, {merge:true}); }catch(e){ console.warn('Failed to persist settings to backend:', e); } }
   hydrateSettings();
   alert('Saved');
 });
@@ -598,6 +662,8 @@ async function loadRemoteSettings(){
   }catch{ /* ignore if not available */ }
 }
 loadRemoteSettings();
+// Initialize optional backend sync (if FIREBASE_CONFIG present)
+initSync();
 applyClientMode();
 if(!CLIENT_MODE) renderBookings();
 </script>
