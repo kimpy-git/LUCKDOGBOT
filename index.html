@@ -312,6 +312,13 @@ function getStartHour(){ return Math.min(18, Math.max(6, parseInt($('#startHour'
 function getSlotsPerDay(){ return Math.min(12, Math.max(1, parseInt($('#slotsPerDay').value||'4',10))); }
 function getBasePrice(){ return Math.max(0, parseFloat($('#basePrice').value||'65')); }
 function getBreedSurcharge(){ return Math.max(0, parseFloat($('#breedSurcharge').value||'10')); }
+
+// Normalize legacy or shorthand addon keys to preferred labels
+function normalizeAddonsString(str){
+  if(!str) return '';
+  // Replace standalone 'teeth:' keys with 'teeth cleaning:'
+  return String(str).replace(/(^|,)\s*teeth\s*:/gi, '$1teeth cleaning:');
+}
 function getSizePrice(size){
   const map = {
     small: Math.max(0, parseFloat($('#priceSmall').value||'0')),
@@ -322,7 +329,7 @@ function getSizePrice(size){
   return map[String(size||'').toLowerCase()] ?? 0;
 }
 function getAddonsMenu(){
-  const raw = $('#addons').value; const out = {};
+  const raw = normalizeAddonsString($('#addons').value); const out = {};
   raw.split(',').map(x=>x.trim()).filter(Boolean).forEach(pair=>{ const [k,v] = pair.split(':').map(s=>s.trim()); if(k) out[k.toLowerCase()] = Math.max(0, parseFloat(v||'0')); });
   return out;
 }
@@ -387,6 +394,15 @@ let pending = null; // temp selection before confirm
 function hydrateSettings(){
   const s = store.get('settings', null);
   if(s){
+    // Migrate legacy addon key 'teeth' -> 'teeth cleaning'
+    const normalized = normalizeAddonsString(s.addons||'');
+    if(normalized !== (s.addons||'')){
+      s.addons = normalized;
+      try{
+        store.set('settings', s);
+        if(db){ try{ settingsDoc().set({addons: normalized},{merge:true}); }catch(_){} }
+      }catch(_){ /* ignore */ }
+    }
     $('#bizName').value=s.bizName;
     $('#ownerEmail').value=s.ownerEmail||$('#ownerEmail').value;
     if(s.ownerPhone!=null) $('#ownerPhone').value=s.ownerPhone;
